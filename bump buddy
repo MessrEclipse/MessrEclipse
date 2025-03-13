@@ -1,0 +1,99 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
+import json
+import os
+
+class Client(commands.Bot):
+    async def on_ready(self):
+        print(f"Logged on as {self.user}")
+
+        try:
+            guild = discord.Object(id= server id) #this is the actual id in my main code
+            synced = await self.tree.sync(guild=guild)
+            print(f"Synced {len(synced)} commands to guild {guild.id}")
+
+        except Exception as e:
+            print(f"Error syncing commands: {e}")
+
+#set up stuff
+intents = discord.Intents.default()
+intents.message_content = True
+client = Client(command_prefix="!", intents=intents)
+
+GUILD_ID = discord.Object(id= server id) #this is the actual id in my main code
+
+#slash commands
+
+#bump command, adds 1 to a users bump count
+@client.tree.command(name="bump", description="Adds to user's bump count", guild=GUILD_ID)
+async def bump(interaction: discord.Interaction, user: discord.User):
+    user_id = str(user.id)
+    
+    if os.path.exists("bump_counts.json"):
+        with open("bump_counts.json", "r") as f:
+            counts = json.load(f)
+    else:
+        counts = {}
+
+    if user_id in counts:
+        counts[user_id] += 1
+    else:
+        counts[user_id] = 1
+
+    with open("bump_counts.json", "w") as f:
+        json.dump(counts, f, indent=4)
+        
+    await interaction.response.send_message(f"{user.mention} has bumped the server {counts[user_id]} times!")
+
+#bump amount command, displays the amount of times a user has bumped
+@client.tree.command(name="bump_amount", description="Check the amount of bumps for a user", guild=GUILD_ID)
+async def bump_amount(interaction: discord.Interaction, user: discord.User):
+    user_id = str(user.id)
+    
+    if os.path.exists("bump_counts.json"):
+        with open("bump_counts.json", "r") as f:
+            counts = json.load(f)
+    else:
+        counts = {}
+        
+        if user_id in counts:
+            await interaction.response.send_message(f"{user.mention} has bumped {counts[user_id]} times!")
+        else:
+            await interaction.response.send_message(f"{user.mention} has not bumped the server yet")
+
+#leaderboard command, displays the leaderboard for the server
+@client.tree.command(name="leaderboard", description="Shows the leaderboard for this server", guild=GUILD_ID)
+async def leaderboard(interaction: discord.Interaction):
+    if os.path.exists("bump_counts.json"):
+        with open("bump_counts.json", "r") as f:
+            counts = json.load(f)
+            
+        if counts:
+            sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+            
+            leaderboard_message = "**Bump Leaderboard**\n"
+            for i, (user_id, bumps) in enumerate (sorted_counts[:10], start=1):
+                try:
+                    user = await client.fetch_user(user_id)
+                    leaderboard_message += f"{i}. {user.mention}: {bumps} bumps\n"
+                except discord.NotFound:
+                    leaderboard_message += f"{i}. Unknown User (ID: {user_id}): {bumps} bumps\n"
+                    
+            await interaction.response.send_message(leaderboard_message)
+        else:
+            await interaction.response.send_message("No bumps have been recorded yet")
+    else:
+        await interaction.response.send_message("No bumps have been recorded yet.")
+
+#help command, displays the help embedded
+@client.tree.command(name="help", description="Info about the bot", guild=GUILD_ID)
+async def help(interaction: discord.Interaction):
+    embed = discord.Embed(title = "Help", description="Bump buddy will count the amount of times everyone has bumped the server", color=discord.Color.teal())
+    embed.set_thumbnail(url="https://i.pinimg.com/736x/04/88/4f/04884f06b8460d435d8a8b4af5ecd8a8.jpg")
+    embed.add_field(name="Bump", value="Adds 1 to a user's bump count", inline=False)
+    embed.add_field(name="Leaderboard", value="Displays the leaderboard for this server", inline=False)
+    embed.add_field(name="Bump Amount", value="Displays the amount of bumps someone has done", inline=False)
+    await interaction.response.send_message(embed=embed)
+    
+client.run(" bot token ") #this is the actual token in my main code
